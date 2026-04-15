@@ -1,95 +1,139 @@
-import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
+'use client';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-// ✅ FIX: make async
-async function verifyAuth() {
-  const cookieStore = await cookies(); // ✅ FIX
-
-  const token = cookieStore.get('token')?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
-
-// ✅ FIX: make component async
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
-  const user = await verifyAuth(); // ✅ FIX
+  const router = useRouter();
 
-  if (!user) {
-    redirect('/auth/login');
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      router.push('/auth/login');
+    }
+  }, [router]);
+
+  function logout() {
+    localStorage.removeItem('token');
+    router.push('/auth/login');
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: '#0d0d1a',
-        color: '#ffffff',
-      }}
-    >
-      <aside
-        style={{
-          width: '240px',
-          backgroundColor: '#1a1a2e',
-          borderRight: '1px solid #2a2a4e',
-          padding: '20px',
-        }}
-      >
-        <h2
-          style={{
-            color: '#c9a84c',
-            fontWeight: 'bold',
-            marginBottom: '30px',
-          }}
-        >
-          BLK EMPIRE
-        </h2>
+    <div style={container}>
+      {/* SIDEBAR */}
+      <div style={sidebar}>
+        <div style={logo}>BLK EMPIRE</div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <a href="/dashboard" style={linkStyle}>Home</a>
-          <a href="/dashboard/quests" style={linkStyle}>Quests</a>
-          <a href="/dashboard/achievements" style={linkStyle}>Achievements</a>
-          <a href="/dashboard/badges" style={linkStyle}>Badges</a>
-          <a href="/dashboard/titles" style={linkStyle}>Titles</a>
-          <a href="/dashboard/stats" style={linkStyle}>Stats</a>
-          <a href="/dashboard/cum-history" style={linkStyle}>Cum History</a>
-          <a href="/dashboard/partners" style={linkStyle}>Partners</a>
-          <a href="/dashboard/notifications" style={linkStyle}>Notifications</a>
-          <a href="/dashboard/settings" style={linkStyle}>Settings</a>
+        <nav style={nav}>
+          <NavItem href="/dashboard" label="Home" />
+          <NavItem href="/dashboard/profile" label="Profile" />
+
+          <Divider />
+
+          <NavItem href="/dashboard/quests" label="Quests" />
+          <NavItem href="/dashboard/achievements" label="Achievements" />
+          <NavItem href="/dashboard/badges" label="Badges" />
+
+          <Divider />
+
+          <NavItem href="/dashboard/titles" label="Titles" />
+          <NavItem href="/dashboard/stats" label="Stats" />
+          <NavItem href="/dashboard/cum-history" label="Cum History" />
+          <NavItem href="/dashboard/partners" label="Partners" />
+
+          <Divider />
+
+          <NavItem href="/dashboard/settings" label="Settings" />
+          <NavItem href="/dashboard/notifications" label="Notifications" />
+          <NavItem href="/dashboard/news" label="News" />
+          <NavItem href="/dashboard/archives" label="Archives" />
         </nav>
-      </aside>
 
-      <main
-        style={{
-          flex: 1,
-          padding: '30px',
-        }}
-      >
-        {children}
-      </main>
+        <button onClick={logout} style={logoutButton}>
+          Logout
+        </button>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div style={content}>{children}</div>
     </div>
   );
 }
 
-const linkStyle: React.CSSProperties = {
-  color: '#8888aa',
+function NavItem({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} style={navItem}>
+      {label}
+    </Link>
+  );
+}
+
+function Divider() {
+  return <div style={divider} />;
+}
+
+/* ================= STYLES ================= */
+
+const container = {
+  display: 'flex',
+  minHeight: '100vh',
+  backgroundColor: '#0d0d1a',
+};
+
+const sidebar = {
+  width: '240px',
+  backgroundColor: '#1a1a2e',
+  borderRight: '1px solid #2a2a4e',
+  padding: '20px',
+  display: 'flex',
+  flexDirection: 'column' as const,
+  justifyContent: 'space-between',
+};
+
+const logo = {
+  color: '#c9a84c',
+  fontWeight: 'bold',
+  fontSize: '20px',
+  marginBottom: '20px',
+};
+
+const nav = {
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: '8px',
+};
+
+const navItem = {
+  color: '#ffffff',
   textDecoration: 'none',
-  fontSize: '14px',
-  letterSpacing: '0.05em',
+  padding: '10px',
+  borderRadius: '6px',
+  transition: '0.2s',
+};
+
+const divider = {
+  height: '1px',
+  backgroundColor: '#2a2a4e',
+  margin: '10px 0',
+};
+
+const logoutButton = {
+  marginTop: '20px',
+  padding: '10px',
+  backgroundColor: '#2a2a4e',
+  border: '1px solid #c9a84c',
+  color: '#c9a84c',
+  borderRadius: '6px',
+  cursor: 'pointer',
+};
+
+const content = {
+  flex: 1,
+  padding: '20px',
 };

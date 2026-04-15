@@ -1,154 +1,168 @@
-// app/page.tsx
-
 'use client';
 
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export default function HomePage() {
+export default function DashboardHome() {
+  const [player, setPlayer] = useState<any>(null);
+
+  async function fetchPlayer() {
+    try {
+      const res = await fetch('/api/player/me', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      const data = await res.json();
+      setPlayer(data.player);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  useEffect(() => {
+    fetchPlayer();
+
+    const interval = setInterval(fetchPlayer, 30000); // polling every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!player) {
+    return <div style={loading}>Loading...</div>;
+  }
+
   return (
     <div style={container}>
-      <div style={heroCard}>
-        <h1 style={title}>BLK EMPIRE</h1>
+      <h1 style={title}>Dashboard</h1>
 
-        <p style={subtitle}>
-          A persistent RPG progression system for Second Life.
-        </p>
-
-        <div style={buttonRow}>
-          <Link href="/auth/login">
-            <button style={primaryButton}>Enter Dashboard</button>
-          </Link>
-
-          <Link href="/leaderboard">
-            <button style={secondaryButton}>View Leaderboard</button>
-          </Link>
-        </div>
-      </div>
-
-      <div style={featuresSection}>
-        <Feature
-          title="Progression System"
-          description="Level up across 5 independent tracks: Main, Dom, Sub, Switch, and Time."
+      <div style={grid}>
+        <TrackCard
+          label="MAIN LEVEL"
+          value={`Level ${player.level}`}
+          progress={player.totalxp % 1000}
         />
 
-        <Feature
-          title="Live Leaderboards"
-          description="Compete globally across XP, Cum, and role-based rankings."
+        <TrackCard
+          label="DOM TRACK"
+          value={`Level ${player.dom_level}`}
+          progress={player.domxp % 1000}
         />
 
-        <Feature
-          title="Quests & Achievements"
-          description="Complete rotating quests and unlock achievements to gain XP."
+        <TrackCard
+          label="SUB TRACK"
+          value={`Level ${player.sub_level}`}
+          progress={player.subxp % 1000}
         />
 
-        <Feature
-          title="Cum Tracking"
-          description="Track interactions, partners, and unlock unique cum-based titles."
+        <TrackCard
+          label="SWITCH TRACK"
+          value={`Level ${player.switch_level}`}
+          progress={player.switchxp % 1000}
+        />
+
+        <TrackCard
+          label="TIME TRACK"
+          value={`Level ${player.time_level}`}
+          progress={player.timexp % 3600}
+        />
+
+        <TrackCard
+          label="CUM LEVEL"
+          value={`Level ${player.cumlevel}`}
+          progress={player.cumxp % 1000}
         />
       </div>
     </div>
   );
 }
 
-function Feature({
-  title,
-  description,
+function TrackCard({
+  label,
+  value,
+  progress,
 }: {
-  title: string;
-  description: string;
+  label: string;
+  value: string;
+  progress: number;
 }) {
   return (
-    <div style={featureCard}>
-      <h3 style={featureTitle}>{title}</h3>
-      <p style={featureDesc}>{description}</p>
+    <div style={card}>
+      <div style={labelStyle}>{label}</div>
+      <div style={valueStyle}>{value}</div>
+
+      <div style={barBackground}>
+        <div
+          style={{
+            ...barFill,
+            width: `${Math.min(progress / 10, 100)}%`,
+          }}
+        />
+      </div>
     </div>
   );
 }
 
 /* ================= STYLES ================= */
 
-const container: React.CSSProperties = {
+const container = {
   minHeight: '100vh',
   backgroundColor: '#0d0d1a',
   color: '#ffffff',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  padding: '40px 20px',
+  padding: '30px',
 };
 
-const heroCard: React.CSSProperties = {
-  backgroundColor: '#1a1a2e',
-  border: '1px solid #2a2a4e',
-  borderRadius: '16px',
-  padding: '40px',
-  textAlign: 'center',
-  maxWidth: '600px',
-  width: '100%',
-  marginBottom: '40px',
-};
-
-const title: React.CSSProperties = {
+const title = {
   color: '#c9a84c',
-  fontSize: '36px',
+  fontSize: '28px',
   fontWeight: 'bold',
-  marginBottom: '10px',
+  marginBottom: '20px',
 };
 
-const subtitle: React.CSSProperties = {
-  color: '#8888aa',
-  fontSize: '16px',
-  marginBottom: '30px',
-};
-
-const buttonRow: React.CSSProperties = {
-  display: 'flex',
-  gap: '12px',
-  justifyContent: 'center',
-  flexWrap: 'wrap',
-};
-
-const primaryButton: React.CSSProperties = {
-  padding: '12px 20px',
-  backgroundColor: '#c9a84c',
-  border: 'none',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontWeight: 'bold',
-};
-
-const secondaryButton: React.CSSProperties = {
-  padding: '12px 20px',
-  backgroundColor: '#2a2a4e',
-  border: '1px solid #c9a84c',
-  color: '#c9a84c',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontWeight: 'bold',
-};
-
-const featuresSection: React.CSSProperties = {
+const grid = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
   gap: '20px',
-  width: '100%',
-  maxWidth: '900px',
 };
 
-const featureCard: React.CSSProperties = {
+const card = {
   backgroundColor: '#1a1a2e',
   border: '1px solid #2a2a4e',
   borderRadius: '12px',
   padding: '20px',
 };
 
-const featureTitle: React.CSSProperties = {
-  color: '#c9a84c',
-  fontWeight: 'bold',
+const labelStyle = {
+  color: '#8888aa',
+  fontSize: '12px',
+  letterSpacing: '1px',
   marginBottom: '8px',
 };
 
-const featureDesc: React.CSSProperties = {
-  color: '#8888aa',
-  fontSize: '14px',
+const valueStyle = {
+  color: '#c9a84c',
+  fontSize: '18px',
+  fontWeight: 'bold',
+  marginBottom: '12px',
+};
+
+const barBackground = {
+  width: '100%',
+  height: '10px',
+  backgroundColor: '#2a2a4e',
+  borderRadius: '6px',
+  overflow: 'hidden',
+};
+
+const barFill = {
+  height: '100%',
+  backgroundColor: '#c9a84c',
+};
+
+const loading = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#0d0d1a',
+  color: '#ffffff',
 };
