@@ -10,7 +10,6 @@ type AchievementResult = {
 };
 
 export async function checkAchievements(playerId: string): Promise<AchievementResult[]> {
-  // 1. Get player stats
   const playerRes = await query(
     `SELECT 
       totalxp,
@@ -29,7 +28,6 @@ export async function checkAchievements(playerId: string): Promise<AchievementRe
 
   const player = playerRes.rows[0];
 
-  // 2. Get all active achievements not yet unlocked
   const achievementsRes = await query(
     `SELECT a.*
      FROM achievements a
@@ -67,13 +65,11 @@ export async function checkAchievements(playerId: string): Promise<AchievementRe
       case 'time_level':
         conditionMet = player.time_level >= ach.conditionvalue;
         break;
-      default:
-        break;
     }
 
     if (!conditionMet) continue;
 
-    // 3. Insert achievement unlock
+    // Insert unlock
     await query(
       `INSERT INTO playerachievements (playerid, achievementid)
        VALUES ($1, $2)
@@ -81,7 +77,18 @@ export async function checkAchievements(playerId: string): Promise<AchievementRe
       [playerId, ach.id]
     );
 
-    // 4. Award XP if defined
+    // Notification
+    await query(
+      `INSERT INTO notifications (playerid, type, title, message)
+       VALUES ($1, 'achievement', $2, $3)`,
+      [
+        playerId,
+        'Achievement Unlocked!',
+        `${ach.name}`,
+      ]
+    );
+
+    // XP reward
     if (ach.xpreward && ach.xpreward > 0) {
       await awardXP(playerId, ach.xpreward, 'achievement', ach.id);
     }

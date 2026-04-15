@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 import { processCumEvent } from '@/lib/services/CumService';
+import { query } from '@/lib/db';
 
 const schema = z.object({
   provideruuid: z.string().uuid(),
@@ -28,6 +29,25 @@ export async function POST(req: NextRequest) {
       body.recipientuuid,
       body.bodypart
     );
+
+    // 4. Resolve provider playerId for notification
+    const providerRes = await query(
+      `SELECT id FROM players WHERE avataruuid = $1`,
+      [body.provideruuid]
+    );
+
+    if (providerRes.rowCount) {
+      const providerId = providerRes.rows[0].id;
+
+      await query(
+        `INSERT INTO notifications (playerid, type, title, message)
+         VALUES ($1, 'cumevent', 'Cum Event!', $2)`,
+        [
+          providerId,
+          `You gained ${result.xpawarded} XP from a cum event (${body.bodypart})`,
+        ]
+      );
+    }
 
     return NextResponse.json({
       xpawarded: result.xpawarded,

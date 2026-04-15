@@ -2,7 +2,6 @@
 
 import { query } from '@/lib/db';
 import { awardXP } from '@/lib/services/XPService';
-import { QuestRotation } from '@/lib/types';
 
 export async function getAllQuests() {
   const res = await query(
@@ -67,34 +66,27 @@ export async function updateQuestProgress(
 }
 
 export async function completeQuest(playerId: string, questId: string) {
-  // 1. Fetch quest + progress
   const res = await query(
     `SELECT 
         pq.progress,
         pq.completedat,
         q.conditionvalue,
-        q.xpreward
+        q.xpreward,
+        q.title
      FROM playerquests pq
      JOIN quests q ON q.id = pq.questid
      WHERE pq.playerid = $1 AND pq.questid = $2`,
     [playerId, questId]
   );
 
-  if (!res.rowCount) {
-    throw new Error('Quest not found');
-  }
+  if (!res.rowCount) throw new Error('Quest not found');
 
   const quest = res.rows[0];
 
-  if (quest.completedat) {
-    throw new Error('Quest already completed');
-  }
+  if (quest.completedat) throw new Error('Quest already completed');
+  if (quest.progress < quest.conditionvalue) throw new Error('Quest not complete');
 
-  if (quest.progress < quest.conditionvalue) {
-    throw new Error('Quest not complete');
-  }
-
-  // 2. Mark complete
+  // Mark complete
   await query(
     `UPDATE playerquests
      SET completedat = NOW()
@@ -102,7 +94,17 @@ export async function completeQuest(playerId: string, questId: string) {
     [playerId, questId]
   );
 
-  // 3. Award XP
+  // Notification
+  await query(
+    `INSERT INTO notifications (playerid, type, title, message)
+     VALUES ($1, 'questcomplete', 'Quest Completed!', $2)`,
+    [
+      playerId,
+      `You completed: ${quest.title}`,
+    ]
+  );
+
+  // Award XP
   const xpResult = await awardXP(
     playerId,
     quest.xpreward,
