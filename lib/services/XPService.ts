@@ -1,7 +1,6 @@
-// lib/services/XPService.ts
-
 import { query } from '@/lib/db';
 import { XPSourceType } from '@/lib/types';
+import { checkAchievements } from '@/lib/services/AchievementService';
 
 type AwardXPResult = {
   newtotalxp: number;
@@ -17,11 +16,8 @@ type AwardXPResult = {
   time_levelup: boolean;
   cumlevel: number;
   cum_levelup: boolean;
+  newachievements: any[];
 };
-
-function getTier(level: number) {
-  return Math.floor((level - 1) / 50);
-}
 
 export async function awardXP(
   playerId: string,
@@ -29,17 +25,18 @@ export async function awardXP(
   sourceType: XPSourceType,
   sourceId?: string
 ): Promise<AwardXPResult> {
-  // 1. Event sourcing
+  // 1. Log XP event
   await query(
     `INSERT INTO xpevents (playerid, xpamount, sourcetype, sourceid)
      VALUES ($1, $2, $3, $4)`,
     [playerId, xpAmount, sourceType, sourceId || null]
   );
 
-  // 2. Load player
+  // 2. Get player
   const playerRes = await query(`SELECT * FROM players WHERE id = $1`, [playerId]);
   const player = playerRes.rows[0];
 
+  // 3. Calculate role XP split
   let domGain = 0;
   let subGain = 0;
   let switchGain = 0;
@@ -60,7 +57,7 @@ export async function awardXP(
 
   const timeGain = sourceType === 'furniture' ? xpAmount : 0;
 
-  // 3. Apply XP
+  // 4. Update player XP
   const updated = await query(
     `UPDATE players
      SET totalxp = totalxp + $1,
@@ -75,9 +72,7 @@ export async function awardXP(
 
   const p = updated.rows[0];
 
-  // =========================
-  // MAIN LEVEL
-  // =========================
+  // 5. Main level calculation
   const levelRes = await query(
     `SELECT level FROM levels 
      WHERE xprequired <= $1 
@@ -92,21 +87,18 @@ export async function awardXP(
     await query(`UPDATE players SET level = $1 WHERE id = $2`, [newLevel, playerId]);
 
     await query(
-      `INSERT INTO notifications (playerid, type, title, message)
-       VALUES ($1, 'levelup', 'Level Up!', $2)`,
+      `INSERT INTO notifications(playerid,type,title,message)
+       VALUES ($1,'levelup','Level Up!',$2)`,
       [playerId, `You reached Level ${newLevel}`]
     );
   }
 
-  // =========================
-  // ROLE / TIME TRACKS
-  // =========================
+  // 6. Helper for role/time levels
   async function checkRoleLevel(
     xp: number,
     currentLevel: number,
     field: string,
-    table: string,
-    label: string
+    table: string
   ) {
     const res = await query(
       `SELECT level FROM ${table}
@@ -125,42 +117,22 @@ export async function awardXP(
       ]);
 
       await query(
-        `INSERT INTO notifications (playerid, type, title, message)
-         VALUES ($1, 'levelup', $2, $3)`,
-        [
-          playerId,
-          `${label} Level Up`,
-          `Your ${label} level is now ${newLevel}`,
-        ]
+        `INSERT INTO notifications(playerid,type,title,message)
+         VALUES ($1,'tier_unlock','Tier Up!',$2)`,
+        [playerId, `${field} reached level ${newLevel}`]
       );
-
-      // Tier unlock check
-      const oldTier = getTier(currentLevel);
-      const newTier = getTier(newLevel);
-
-      if (newTier > oldTier) {
-        await query(
-          `INSERT INTO notifications (playerid, type, title, message)
-           VALUES ($1, 'tier_unlock', 'New Tier Unlocked!', $2)`,
-          [
-            playerId,
-            `You reached a new ${label} tier at level ${newLevel}`,
-          ]
-        );
-      }
     }
 
     return { newLevel, levelup };
   }
 
-  const dom = await checkRoleLevel(p.domxp, player.dom_level, 'dom_level', 'role_levels', 'DOM');
-  const sub = await checkRoleLevel(p.subxp, player.sub_level, 'sub_level', 'role_levels', 'SUB');
-  const sw = await checkRoleLevel(p.switchxp, player.switch_level, 'switch_level', 'role_levels', 'SWITCH');
-  const time = await checkRoleLevel(p.timexp, player.time_level, 'time_level', 'time_levels', 'TIME');
+  // 7. Role levels
+  const dom = await checkRoleLevel(p.domxp, player.dom_level, 'dom_level', 'role_levels');
+  const sub = await checkRoleLevel(p.subxp, player.sub_level, 'sub_level', 'role_levels');
+  const sw = await checkRoleLevel(p.switchxp, player.switch_level, 'switch_level', 'role_levels');
+  const time = await checkRoleLevel(p.timexp, player.time_level, 'time_level', 'time_levels');
 
-  // =========================
-  // CUM LEVEL
-  // =========================
+  // 8. Cum level
   const cumRes = await query(
     `SELECT level FROM cum_levels
      WHERE xprequired <= $1
@@ -178,12 +150,16 @@ export async function awardXP(
     ]);
 
     await query(
-      `INSERT INTO notifications (playerid, type, title, message)
-       VALUES ($1, 'levelup', 'Cum Level Up!', $2)`,
-      [playerId, `Your cum level is now ${newCumLevel}`]
+      `INSERT INTO notifications(playerid,type,title,message)
+       VALUES ($1,'tier_unlock','Cum Level Up!',$2)`,
+      [playerId, `Cum Level ${newCumLevel}`]
     );
   }
 
+  // 9. Achievement trigger (FIX)
+  const newAchievements = await checkAchievements(playerId);
+
+  // 10. Final return
   return {
     newtotalxp: p.totalxp,
     newlevel: newLevel,
@@ -198,5 +174,6 @@ export async function awardXP(
     time_levelup: time.levelup,
     cumlevel: newCumLevel,
     cum_levelup: cumLevelUp,
+    newachievements: newAchievements,
   };
 }

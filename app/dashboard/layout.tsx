@@ -1,5 +1,3 @@
-// app/dashboard/layout.tsx
-
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -7,8 +5,10 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-function verifyAuth() {
-  const cookieStore = cookies();
+// ✅ FIX: make async
+async function verifyAuth() {
+  const cookieStore = await cookies(); // ✅ FIX
+
   const token = cookieStore.get('token')?.value;
 
   if (!token) {
@@ -22,15 +22,16 @@ function verifyAuth() {
   }
 }
 
-export default function DashboardLayout({
+// ✅ FIX: make component async
+export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const user = verifyAuth();
+  const user = await verifyAuth(); // ✅ FIX
 
   if (!user) {
-    redirect('/login');
+    redirect('/auth/login');
   }
 
   return (
@@ -42,7 +43,6 @@ export default function DashboardLayout({
         color: '#ffffff',
       }}
     >
-      {/* Sidebar */}
       <aside
         style={{
           width: '240px',
@@ -75,7 +75,6 @@ export default function DashboardLayout({
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main
         style={{
           flex: 1,

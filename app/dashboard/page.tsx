@@ -1,122 +1,154 @@
-// app/dashboard/page.tsx
+// app/page.tsx
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
-interface Player {
-  displayname: string;
-  level: number;
-  totalxp: number;
-  dom_level: number;
-  sub_level: number;
-  switch_level: number;
-  time_level: number;
-  cumlevel: number;
-}
-
-export default function DashboardPage() {
-  const [player, setPlayer] = useState<Player | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  async function fetchPlayer() {
-    try {
-      const res = await fetch('/api/player/me', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      const data = await res.json();
-      setPlayer(data.player);
-    } catch (err) {
-      console.error('Failed to load player:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchPlayer();
-
-    const interval = setInterval(fetchPlayer, 30000); // poll every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) {
-    return <div style={{ color: '#8888aa' }}>Loading dashboard...</div>;
-  }
-
-  if (!player) {
-    return <div style={{ color: '#ff4444' }}>Failed to load player.</div>;
-  }
-
+export default function HomePage() {
   return (
-    <div>
-      <h1
-        style={{
-          color: '#c9a84c',
-          fontSize: '28px',
-          marginBottom: '20px',
-        }}
-      >
-        Welcome, {player.displayname}
-      </h1>
+    <div style={container}>
+      <div style={heroCard}>
+        <h1 style={title}>BLK EMPIRE</h1>
 
-      {/* Main Level */}
-      <StatCard label="Main Level" value={`Level ${player.level}`} />
-      <StatCard label="Total XP" value={player.totalxp.toLocaleString()} />
+        <p style={subtitle}>
+          A persistent RPG progression system for Second Life.
+        </p>
 
-      {/* Tracks */}
-      <div style={{ marginTop: '30px' }}>
-        <h2 style={sectionTitle}>Progression Tracks</h2>
+        <div style={buttonRow}>
+          <Link href="/auth/login">
+            <button style={primaryButton}>Enter Dashboard</button>
+          </Link>
 
-        <StatCard label="DOM Track" value={`Level ${player.dom_level}`} />
-        <StatCard label="SUB Track" value={`Level ${player.sub_level}`} />
-        <StatCard label="SWITCH Track" value={`Level ${player.switch_level}`} />
-        <StatCard label="TIME Track" value={`Level ${player.time_level}`} />
-        <StatCard label="CUM Level" value={`Level ${player.cumlevel}`} />
+          <Link href="/leaderboard">
+            <button style={secondaryButton}>View Leaderboard</button>
+          </Link>
+        </div>
+      </div>
+
+      <div style={featuresSection}>
+        <Feature
+          title="Progression System"
+          description="Level up across 5 independent tracks: Main, Dom, Sub, Switch, and Time."
+        />
+
+        <Feature
+          title="Live Leaderboards"
+          description="Compete globally across XP, Cum, and role-based rankings."
+        />
+
+        <Feature
+          title="Quests & Achievements"
+          description="Complete rotating quests and unlock achievements to gain XP."
+        />
+
+        <Feature
+          title="Cum Tracking"
+          description="Track interactions, partners, and unlock unique cum-based titles."
+        />
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function Feature({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
-    <div
-      style={{
-        backgroundColor: '#1a1a2e',
-        border: '1px solid #2a2a4e',
-        borderRadius: '12px',
-        padding: '16px',
-        marginBottom: '12px',
-      }}
-    >
-      <div
-        style={{
-          color: '#8888aa',
-          fontSize: '12px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
-        {label}
-      </div>
-
-      <div
-        style={{
-          color: '#ffffff',
-          fontSize: '18px',
-          fontWeight: 'bold',
-        }}
-      >
-        {value}
-      </div>
+    <div style={featureCard}>
+      <h3 style={featureTitle}>{title}</h3>
+      <p style={featureDesc}>{description}</p>
     </div>
   );
 }
 
-const sectionTitle: React.CSSProperties = {
+/* ================= STYLES ================= */
+
+const container: React.CSSProperties = {
+  minHeight: '100vh',
+  backgroundColor: '#0d0d1a',
+  color: '#ffffff',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  padding: '40px 20px',
+};
+
+const heroCard: React.CSSProperties = {
+  backgroundColor: '#1a1a2e',
+  border: '1px solid #2a2a4e',
+  borderRadius: '16px',
+  padding: '40px',
+  textAlign: 'center',
+  maxWidth: '600px',
+  width: '100%',
+  marginBottom: '40px',
+};
+
+const title: React.CSSProperties = {
   color: '#c9a84c',
+  fontSize: '36px',
+  fontWeight: 'bold',
   marginBottom: '10px',
+};
+
+const subtitle: React.CSSProperties = {
+  color: '#8888aa',
+  fontSize: '16px',
+  marginBottom: '30px',
+};
+
+const buttonRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+};
+
+const primaryButton: React.CSSProperties = {
+  padding: '12px 20px',
+  backgroundColor: '#c9a84c',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+};
+
+const secondaryButton: React.CSSProperties = {
+  padding: '12px 20px',
+  backgroundColor: '#2a2a4e',
+  border: '1px solid #c9a84c',
+  color: '#c9a84c',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+};
+
+const featuresSection: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '20px',
+  width: '100%',
+  maxWidth: '900px',
+};
+
+const featureCard: React.CSSProperties = {
+  backgroundColor: '#1a1a2e',
+  border: '1px solid #2a2a4e',
+  borderRadius: '12px',
+  padding: '20px',
+};
+
+const featureTitle: React.CSSProperties = {
+  color: '#c9a84c',
+  fontWeight: 'bold',
+  marginBottom: '8px',
+};
+
+const featureDesc: React.CSSProperties = {
+  color: '#8888aa',
+  fontSize: '14px',
 };
