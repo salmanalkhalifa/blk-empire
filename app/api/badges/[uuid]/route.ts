@@ -1,59 +1,36 @@
-// app/api/badges/[uuid]/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
 import { z } from 'zod';
-import { query } from '@/lib/db';
-
-const paramsSchema = z.object({
-  uuid: z.string().uuid(),
-});
 
 export async function GET(
   req: NextRequest,
-  context: { params: { uuid: string } }
+  context: { params: Promise<{ uuid: string }> }
 ) {
   try {
-    const parsedParams = paramsSchema.parse(context.params);
-    const { uuid } = parsedParams;
+    // ✅ FIX: await params
+    const { uuid } = await context.params;
 
-    const result = await query(
-      `SELECT 
-        id,
-        name,
-        description,
-        category,
-        rarity,
-        iconemoji,
-        conditiontype,
-        conditionvalue
+    const uuidSchema = z.string().uuid();
+
+    const parsed = uuidSchema.safeParse(uuid);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid UUID' }, { status: 400 });
+    }
+
+    const result = await pool.query(
+      `SELECT id, name, description, category, rarity, iconemoji
        FROM badges
        WHERE id = $1 AND isactive = TRUE`,
       [uuid]
     );
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { error: 'Badge not found' },
-        { status: 404 }
-      );
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Badge not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      badge: result.rows[0],
-    });
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid badge UUID', details: error.issues },
-        { status: 400 }
-      );
-    }
-
-    console.error('badge detail error:', error);
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ badge: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

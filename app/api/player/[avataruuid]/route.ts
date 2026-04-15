@@ -1,72 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
 import { z } from 'zod';
-import { query } from '@/lib/db';
-
-const paramsSchema = z.object({
-  avataruuid: z.string().uuid(),
-});
 
 export async function GET(
   req: NextRequest,
-  context: { params: { avataruuid: string } }
+  context: { params: Promise<{ avataruuid: string }> }
 ) {
   try {
-    const parsedParams = paramsSchema.parse(context.params);
-    const { avataruuid } = parsedParams;
+    // ✅ FIX: await params
+    const { avataruuid } = await context.params;
 
-    const result = await query(
-      `SELECT 
-        id,
-        avataruuid,
-        displayname,
-        gender,
-        role,
-        level,
-        totalxp,
-        domxp,
-        subxp,
-        switchxp,
-        timexp,
-        dom_level,
-        sub_level,
-        switch_level,
-        time_level,
-        cumlevel,
-        cumcount,
-        cumxp,
-        honorscore,
-        createdat,
-        lastactive
+    const uuidSchema = z.string().uuid();
+    const parsed = uuidSchema.safeParse(avataruuid);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid avatar UUID' }, { status: 400 });
+    }
+
+    const result = await pool.query(
+      `SELECT id, avataruuid, displayname, level, totalxp,
+              dom_level, sub_level, switch_level, time_level,
+              cumlevel, cumxp
        FROM players
        WHERE avataruuid = $1`,
       [avataruuid]
     );
 
-    if (!result.rowCount || result.rowCount === 0) {
-      return NextResponse.json(
-        { error: 'Player not found' },
-        { status: 404 }
-      );
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
 
-    const player = result.rows[0];
-
-    return NextResponse.json({
-      player,
-    });
-  } catch (error: any) {
-    console.error('Get player error:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid avatar UUID', details: error.issues },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ player: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
